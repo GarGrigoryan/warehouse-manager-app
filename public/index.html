@@ -101,19 +101,27 @@
                 <h2 class="text-xl font-bold text-gray-700">📦 Ներկայիս Գրանցված Ապրանքներ</h2>
                 <input type="text" id="tableSearchInput" placeholder="🔍 Որոնել ներկայիս պահեստում..." class="p-2 border rounded text-sm w-full sm:w-64" />
             </div>
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-gray-50 border-b text-xs uppercase text-gray-500 tracking-wider">
-                        <th class="p-4 font-semibold">ID</th>
-                        <th class="p-4 font-semibold">Անուն</th>
-                        <th class="p-4 font-semibold">Առկա Քանակ</th>
-                        <th class="p-4 font-semibold text-red-600">ինքնարժեք</th>
-                        <th class="p-4 font-semibold text-green-600">Վաճառքի գին</th>
-                        <th class="p-4 font-semibold text-center">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="inventoryTableBody"></tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 border-b text-xs uppercase text-gray-500 tracking-wider">
+                            <th class="p-4 font-semibold">ID</th>
+                            <th class="p-4 font-semibold">Անուն</th>
+                            <th class="p-4 font-semibold">Առկա Քանակ</th>
+                            <th class="p-4 font-semibold text-red-600">ինքնարժեք</th>
+                            <th class="p-4 font-semibold text-green-600">Վաճառքի գին</th>
+                            <th class="p-4 font-semibold text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody"></tbody>
+                </table>
+            </div>
+            <div class="p-4 bg-gray-50 border-t flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="text-xs text-gray-500 font-medium">
+                    Ցուցադրված է <span id="paginationInfo">0-0-ը ընդհանուրից 0</span> ապրանքից
+                </div>
+                <div id="paginationControls" class="flex items-center space-x-1"></div>
+            </div>
         </div>
 
         <div class="bg-white rounded-lg shadow overflow-hidden p-6 mt-8">
@@ -164,6 +172,7 @@
     <script>
         const API_URL = '/api';
         let allItems = [];
+        let filteredItems = []; // Keeps track of searched mutations
         let rawHistoryData = [];
         let activeSelectedYear = null;
         let activeSelectedMonth = null;
@@ -171,11 +180,23 @@
         let activeScopeMode = 'day';
         let activeMonthReportRows = [];
 
+        // Pagination State Configs
+        let currentPage = 1;
+        const itemsPerPage = 50;
+
         async function initApp() {
             await fetchItems();
             updateDailyProfitDisplay();
             fetchProfitHistory();
         }
+
+        // Setup live table searching with reset to page 1
+        document.getElementById('tableSearchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            filteredItems = allItems.filter(item => item.name.toLowerCase().includes(query));
+            currentPage = 1;
+            renderTable();
+        });
 
         const addItemNameInput = document.getElementById('itemName');
         const itemBuyPriceInput = document.getElementById('itemBuyPrice');
@@ -422,7 +443,8 @@
             try {
                 const res = await fetch(`${API_URL}/items`);
                 allItems = await res.json();
-                renderTable(allItems);
+                filteredItems = [...allItems]; // Sync local dynamic data
+                renderTable();
             } catch (err) {
                 console.error("Error sync items mapping:", err);
             }
@@ -440,14 +462,29 @@
             }
         }
 
-        function renderTable(itemsToRender) {
+        // Refactored Pagination Table Rendering Loop
+        function renderTable() {
             const tbody = document.getElementById('inventoryTableBody');
             tbody.innerHTML = '';
 
-            if (itemsToRender.length === 0) {
+            const totalItems = filteredItems.length;
+
+            if (totalItems === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-400">No matching entries matching queries.</td></tr>`;
+                document.getElementById('paginationInfo').textContent = "0-0-ը ընդհանուրից 0";
+                document.getElementById('paginationControls').innerHTML = '';
                 return;
             }
+
+            // Calculation Boundaries
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            if (currentPage > totalPages) currentPage = totalPages || 1;
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+
+            // Slice the active page payload
+            const itemsToRender = filteredItems.slice(startIndex, endIndex);
 
             itemsToRender.forEach(item => {
                 const row = document.createElement('tr');
@@ -465,6 +502,62 @@
                 `;
                 tbody.appendChild(row);
             });
+
+            // Update Pagination Meta Info
+            document.getElementById('paginationInfo').textContent = `${startIndex + 1}-${endIndex}-ը ընդհանուրից ${totalItems}`;
+            renderPaginationControls(totalPages);
+        }
+
+        // UI Builder for Pagination Action Elements
+        function renderPaginationControls(totalPages) {
+            const controlsContainer = document.getElementById('paginationControls');
+            controlsContainer.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            // Prev Button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = `px-2.5 py-1 text-xs border rounded-md font-semibold transition ${currentPage === 1 ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'}`;
+            prevBtn.textContent = 'Նախորդ';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderTable();
+                }
+            });
+            controlsContainer.appendChild(prevBtn);
+
+            // Adaptive block page numbers around active layout scope
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + 4);
+            if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `px-2.5 py-1 text-xs border rounded-md font-semibold transition ${i === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`;
+                pageBtn.textContent = i;
+                pageBtn.addEventListener('click', () => {
+                    currentPage = i;
+                    renderTable();
+                });
+                controlsContainer.appendChild(pageBtn);
+            }
+
+            // Next Button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = `px-2.5 py-1 text-xs border rounded-md font-semibold transition ${currentPage === totalPages ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'}`;
+            nextBtn.textContent = 'Հաջորդ';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderTable();
+                }
+            });
+            controlsContainer.appendChild(nextBtn);
         }
 
         async function handleEditSalePrice(id, name, currentSalePrice) {
@@ -535,91 +628,7 @@
             if (!bundleChildSearch.contains(e.target) && !bundleChildAutocomplete.contains(e.target)) bundleChildAutocomplete.classList.add('hidden');
         });
 
-        // Submit Bundle Composition
-        document.getElementById('bundleConfigForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const bundle_id = document.getElementById('selectedBundleParentId').value;
-            const comp_id = document.getElementById('selectedBundleChildId').value;
-            const qty = document.getElementById('bundleChildQty').value;
-
-            if (!bundle_id || !comp_id) { alert("Please select items from the autocomplete suggestions!"); return; }
-
-            try {
-                const res = await fetch(`${API_URL}/bundles`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        bundle_id: parseInt(bundle_id),
-                        components: [{ id: parseInt(comp_id), qty: parseInt(qty) }]
-                    })
-                });
-                if (res.ok) {
-                    alert("Component linked successfully to bundle!");
-                    document.getElementById('bundleChildSearch').value = '';
-                    document.getElementById('selectedBundleChildId').value = '';
-                    document.getElementById('bundleChildQty').value = '1';
-                }
-            } catch(err) { console.error(err); }
-        });
-
-        document.getElementById('addItemForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = addItemNameInput.value;
-            const quantity = document.getElementById('itemQuantity').value;
-            const buy_price = itemBuyPriceInput.value;
-
-            try {
-                await fetch(`${API_URL}/items`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, quantity: parseInt(quantity), buy_price: parseFloat(buy_price) })
-                });
-                document.getElementById('addItemForm').reset();
-                autofillFeedback.textContent = '';
-                await fetchItems();
-                fetchProfitHistory();
-                updateDailyProfitDisplay();
-            } catch (err) { console.error(err); }
-        });
-
-        document.getElementById('logSaleForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const item_id = selectedItemId.value;
-            const quantity_sold = document.getElementById('saleQuantity').value;
-
-            if (!item_id) { alert("Please select an item from suggestions!"); return; }
-
-            try {
-                const res = await fetch(`${API_URL}/sales`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ item_id: parseInt(item_id), quantity_sold: parseInt(quantity_sold) })
-                });
-
-                if (res.status !== 200) {
-                    const data = await res.json();
-                    alert(data.error);
-                } else {
-                    document.getElementById('logSaleForm').reset();
-                    selectedItemId.value = '';
-                    await fetchItems();
-                    updateDailyProfitDisplay();
-                    fetchProfitHistory();
-                }
-            } catch (err) { console.error(err); }
-        });
-
-        async function handleDeleteItem(id) {
-            if (confirm("Are you sure?")) {
-                await fetch(`${API_URL}/items/${id}`, { method: 'DELETE' });
-                fetchItems();
-            }
-        }
-
-        document.getElementById('tableSearchInput').addEventListener('input', (e) => {
-            renderTable(allItems.filter(item => item.name.toLowerCase().includes(e.target.value.toLowerCase())));
-        });
-
+        // Initialize App UI
         initApp();
     </script>
 </body>
