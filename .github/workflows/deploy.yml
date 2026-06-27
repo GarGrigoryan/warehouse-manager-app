@@ -45,8 +45,20 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            # 1. Force load the Node environment variables explicitly
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # Load nvm if you use nvm
+
+            # Load global npm binary paths manually just in case
+            export PATH=$PATH:$HOME/.npm-global/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin
+
+            # 2. Change into your warehouse-manager-app tracking directory
             cd ~/warehouse-manager-app
+
+            # 3. Pull updates & trigger builds
             git pull origin main
             npm ci --production
+
+            # 4. Flush and bounce the production instance
             pm2 flush
             pm2 restart warehouse-dashboard
