@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-8">
+
+    <div class="max-w-5xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">🏭 Պահեստի և Առեվտրի Կայք</h1>
+
+        <div class="bg-white p-6 rounded-lg shadow mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4 border-l-8 border-indigo-600">
+            <div class="bg-blue-50 p-4 rounded border border-blue-100">
+                <p class="text-blue-600 text-xs font-bold uppercase tracking-wider">Այսօրվա Շրջանառություն</p>
+                <h3 class="text-2xl font-black text-blue-900 mt-1"><span id="totalRevenueDisplay">0</span> Դրամ</h3>
+                <p class="text-[10px] text-blue-500 mt-0.5">Ընդհանուր շրջանառություն</p>
+            </div>
+            <div class="bg-red-50 p-4 rounded border border-red-100">
+                <p class="text-red-600 text-xs font-bold uppercase tracking-wider">Այսօրվա Ապրանքի ինքնարժեք</p>
+                <h3 class="text-2xl font-black text-red-900 mt-1"><span id="totalCostDisplay">0</span> Դրամ</h3>
+                <p class="text-[10px] text-red-500 mt-0.5">Ընդհանուր ինքնարժեք</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded border border-green-100">
+                <p class="text-green-600 text-xs font-bold uppercase tracking-wider">Այսօրվա Մաքուր Եկամուտ</p>
+                <h3 class="text-2xl font-black text-green-900 mt-1"><span id="pureProfitDisplay">0</span> Դրամ</h3>
+                <p class="text-[10px] text-green-500 mt-0.5">Ընդհանուր եկամուտ</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow relative">
+                <h2 class="text-xl font-bold mb-4 text-gray-700">➕ Ավելացնել Ապրանք</h2>
+                <form id="addItemForm" class="space-y-3" autocomplete="off">
+                    <div class="relative">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Ապրանքի Անուն</label>
+                        <input type="text" id="itemName" placeholder="🔍 Գրեք ապրանքի անունը որոնման համար․․․" required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                        <div id="addStockAutocompleteResults" class="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-md shadow-lg hidden"></div>
+                        <p id="autofillFeedback" class="text-xs text-blue-600 mt-1 h-4 font-medium"></p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Քանակ</label>
+                        <input type="number" id="itemQuantity" placeholder="Քանակ" required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">ինքնարժեք (Դրամ / հատ)</label>
+                        <input type="number" id="itemBuyPrice" placeholder="Հատի արժեք" required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition font-bold text-sm">Ավելացնել Ցանկին</button>
+                </form>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow relative">
+                <h2 class="text-xl font-bold mb-4 text-gray-700">📉 Գրանցել վաճառք</h2>
+                <form id="logSaleForm" class="space-y-3" autocomplete="off">
+                    <div class="relative">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Ապրանք</label>
+                        <input type="text" id="saleSearchInput" placeholder="🔍 Գրեք ապրանքի անունը որոնման համար․․․" required class="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                        <input type="hidden" id="selectedItemId" />
+                        <div id="autocompleteResults" class="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border rounded-md shadow-lg hidden"></div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Վաճառված Ապրանքների Քանակ</label>
+                        <input type="number" id="saleQuantity" placeholder="Քանակ" required class="w-full p-2 border rounded text-sm mb-4" />
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700 transition font-bold text-sm">Գրանցել Վաճառք</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow mb-8 border-t-4 border-purple-600">
+            <h2 class="text-xl font-bold mb-2 text-gray-700">🛠️ Փաթեթների Կարգավորում</h2>
+            <p class="text-xs text-gray-400 mb-4">Փաթեթների կարգավորման գործիք</p>
+
+            <form id="bundleConfigForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div class="relative">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Փաթեթ Ապրանք</label>
+                    <input type="text" id="bundleParentSearch" placeholder="🔍 Գտնել փաթեթ ապրանքը..." required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
+                    <input type="hidden" id="selectedBundleParentId" />
+                    <div id="bundleParentAutocomplete" class="absolute z-50 left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-white border rounded shadow-md hidden"></div>
+                </div>
+                <div class="relative">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Փաթեթի Ենթակա Ապրանք</label>
+                    <input type="text" id="bundleChildSearch" placeholder="🔍 Գտնել փաթեթի ենթակա ապրանքը..." required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-purple-500 outline-none" />
+                    <input type="hidden" id="selectedBundleChildId" />
+                    <div id="bundleChildAutocomplete" class="absolute z-50 left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-white border rounded shadow-md hidden"></div>
+                </div>
+                <div class="flex gap-2">
+                    <div class="w-1/3">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Քանակ</label>
+                        <input type="number" id="bundleChildQty" value="1" min="1" required class="w-full p-2 border rounded text-sm outline-none" />
+                    </div>
+                    <button type="submit" class="w-2/3 bg-purple-600 text-white p-2 rounded hover:bg-purple-700 transition font-bold text-xs uppercase tracking-wide">Կապել Իրար</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-lg shadow overflow-hidden mb-8">
+            <div class="p-6 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 class="text-xl font-bold text-gray-700">📦 Ներկայիս Գրանցված Ապրանքներ</h2>
+                <input type="text" id="tableSearchInput" placeholder="🔍 Որոնել ներկայիս պահեստում..." class="p-2 border rounded text-sm w-full sm:w-64" />
+            </div>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b text-xs uppercase text-gray-500 tracking-wider">
+                        <th class="p-4 font-semibold">ID</th>
+                        <th class="p-4 font-semibold">Item Name</th>
+                        <th class="p-4 font-semibold">In Stock</th>
+                        <th class="p-4 font-semibold text-red-600">Alibaba Cost (WAC)</th>
+                        <th class="p-4 font-semibold text-green-600">Armenia Sell Price</th>
+                        <th class="p-4 font-semibold text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="bg-white rounded-lg shadow overflow-hidden p-6 mt-8">
+            <div class="border-b pb-4 mb-4 flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-700">📆 Archived Bookkeeping Statements</h2>
+                    <p class="text-xs text-gray-400 mt-1" id="ledgerInstructions">Navigate your historical logs year-by-year and inspect deep metrics summaries.</p>
+                </div>
+                <button id="ledgerBackBtn" onclick="navigateLedgerBack()" class="hidden bg-gray-200 text-gray-700 px-3 py-1.5 text-xs font-bold rounded hover:bg-gray-300 transition">&larr; Back</button>
+            </div>
+
+            <div id="ledgerYearView" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+            <div id="ledgerMonthView" class="hidden grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+            <div id="ledgerDayView" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+
+            <div id="ledgerDetailView" class="hidden space-y-4">
+                <div class="flex border-b text-sm font-medium">
+                    <button id="scopeBtnYear" onclick="changeReportScope('year')" class="py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700">Year Summary</button>
+                    <button id="scopeBtnMonth" onclick="changeReportScope('month')" class="py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700">Month Summary</button>
+                    <button id="scopeBtnDay" onclick="changeReportScope('day')" class="py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700">Day Summary</button>
+                </div>
+
+                <div class="bg-indigo-50 p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h4 class="text-lg font-bold text-indigo-900">Statement Sheet: <span id="activeDetailPeriodLabel"></span></h4>
+                        <p class="text-xs text-indigo-700">Pure Net Profit Generated in scope: <span class="font-bold text-sm text-green-600" id="scopeProfitDisplay">0 AMD</span></p>
+                    </div>
+                    <input type="text" id="reportSearchInput" placeholder="🔍 Search items within this scope..." class="p-2 border rounded text-sm w-full sm:w-80 outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b text-xs font-semibold uppercase bg-gray-50 text-gray-500 tracking-wider">
+                                <th class="p-3">Item Name Target</th>
+                                <th class="p-3 text-blue-600">Total Stocked (INS)</th>
+                                <th class="p-3 text-red-500">Total Deducted (OUTS)</th>
+                                <th class="p-3 text-green-600 text-right">Net Profit Contribution</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+        let allItems = [];
+        let rawHistoryData = [];
+        let activeSelectedYear = null;
+        let activeSelectedMonth = null;
+        let activeSelectedDay = null;
+        let activeScopeMode = 'day';
+        let activeMonthReportRows = [];
+
+        async function initApp() {
+            await fetchItems();
+            updateDailyProfitDisplay();
+            fetchProfitHistory();
+        }
+
+        const addItemNameInput = document.getElementById('itemName');
+        const itemBuyPriceInput = document.getElementById('itemBuyPrice');
+        const addStockAutocompleteResults = document.getElementById('addStockAutocompleteResults');
+        const autofillFeedback = document.getElementById('autofillFeedback');
+
+        addItemNameInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+                autofillFeedback.textContent = '';
+                addStockAutocompleteResults.classList.add('hidden');
+                return;
+            }
+
+            const matches = allItems.filter(item => item.name.toLowerCase().includes(query));
+            addStockAutocompleteResults.innerHTML = '';
+
+            const exactMatch = allItems.find(item => item.name.trim().toLowerCase() === query);
+            if (exactMatch) {
+                itemBuyPriceInput.value = Math.round(parseFloat(exactMatch.cost_price || 0));
+                autofillFeedback.textContent = `✨ Existing product! Current average Alibaba cost populated.`;
+            } else {
+                autofillFeedback.textContent = '';
+            }
+
+            if (matches.length === 0) {
+                addStockAutocompleteResults.classList.add('hidden');
+                return;
+            }
+
+            matches.forEach(item => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = "p-3 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center transition border-b border-gray-50";
+                optionDiv.innerHTML = `
+                    <span class="font-medium text-gray-800">${item.name}</span>
+                    <span class="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded">Cost: ${Math.round(parseFloat(item.cost_price)).toLocaleString()} AMD</span>
+                `;
+                optionDiv.addEventListener('click', () => {
+                    addItemNameInput.value = item.name;
+                    itemBuyPriceInput.value = Math.round(parseFloat(item.cost_price));
+                    autofillFeedback.textContent = `✨ Existing product! Current average Alibaba cost populated.`;
+                    addStockAutocompleteResults.classList.add('hidden');
+                });
+                addStockAutocompleteResults.appendChild(optionDiv);
+            });
+            addStockAutocompleteResults.classList.remove('hidden');
+        });
+
+        async function fetchProfitHistory() {
+            try {
+                const res = await fetch(`${API_URL}/sales/history`);
+                rawHistoryData = await res.json();
+                renderYearView();
+            } catch (err) {
+                console.error("Error drawing archive lists:", err);
+            }
+        }
+
+        function hideAllLedgerViews() {
+            document.getElementById('ledgerYearView').classList.add('hidden');
+            document.getElementById('ledgerMonthView').classList.add('hidden');
+            document.getElementById('ledgerDayView').classList.add('hidden');
+            document.getElementById('ledgerDetailView').classList.add('hidden');
+        }
+
+        function renderYearView() {
+            hideAllLedgerViews();
+            document.getElementById('ledgerBackBtn').classList.add('hidden');
+            document.getElementById('ledgerInstructions').textContent = "Select a year to see details.";
+
+            const container = document.getElementById('ledgerYearView');
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+
+            const uniqueYears = [...new Set(rawHistoryData.map(row => row.date.split('-')[0]))];
+
+            if(uniqueYears.length === 0) {
+                container.innerHTML = `<p class="p-4 text-center text-gray-400 col-span-full">No history reports generated yet.</p>`;
+                return;
+            }
+
+            uniqueYears.forEach(year => {
+                const div = document.createElement('div');
+                div.className = "bg-gray-50 border p-6 rounded-lg text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition transform hover:-translate-y-0.5";
+                div.onclick = () => { activeSelectedYear = year; renderMonthView(year); };
+                div.innerHTML = `
+                    <div class="text-2xl mb-1">📁</div>
+                    <div class="font-bold text-gray-700 text-lg">${year}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderMonthView(year) {
+            hideAllLedgerViews();
+            document.getElementById('ledgerBackBtn').classList.remove('hidden');
+            document.getElementById('ledgerInstructions').textContent = `Showing months for year ${year}.`;
+
+            const container = document.getElementById('ledgerMonthView');
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+
+            const matches = rawHistoryData.filter(row => row.date.startsWith(year));
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+            matches.forEach(row => {
+                const monthNum = parseInt(row.date.split('-')[1]);
+                const monthLabel = monthNames[monthNum - 1] || `Month (${monthNum})`;
+
+                const div = document.createElement('div');
+                div.className = "bg-white border p-4 rounded-lg text-center cursor-pointer hover:border-green-500 hover:bg-green-50 transition";
+                div.onclick = () => { activeSelectedMonth = row.date; renderDayView(row.date); };
+                div.innerHTML = `
+                    <div class="text-sm font-semibold text-gray-500 uppercase">${monthLabel}</div>
+                    <div class="text-green-600 font-bold mt-1">${Math.round(Number(row.daily_profit)).toLocaleString()} AMD</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function renderDayView(monthStr) {
+            hideAllLedgerViews();
+            document.getElementById('ledgerBackBtn').classList.remove('hidden');
+            document.getElementById('ledgerInstructions').textContent = `Showing days with changes in ${monthStr}.`;
+
+            const container = document.getElementById('ledgerDayView');
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+
+            try {
+                const res = await fetch(`${API_URL}/reports/months/${monthStr}/days`);
+                const activeDays = await res.json();
+
+                if (activeDays.length === 0) {
+                    container.innerHTML = `<p class="p-4 text-center text-gray-400 col-span-full">No active changes recorded on this month.</p>`;
+                    return;
+                }
+
+                activeDays.forEach(dayRow => {
+                    const absoluteDay = dayRow.active_date.split('-')[2];
+                    const div = document.createElement('div');
+                    div.className = "bg-blue-50 border border-blue-100 p-4 rounded-lg text-center cursor-pointer hover:border-blue-500 hover:bg-blue-100 transition font-bold text-blue-800";
+                    div.onclick = () => { activeScopeMode = 'day'; showScopedDetails(dayRow.active_date); };
+                    div.innerHTML = `📅 Day ${absoluteDay}`;
+                    container.appendChild(div);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function showScopedDetails(targetString) {
+            hideAllLedgerViews();
+            document.getElementById('ledgerDetailView').classList.remove('hidden');
+            document.getElementById('reportSearchInput').value = '';
+
+            ['year', 'month', 'day'].forEach(s => {
+                const btn = document.getElementById(`scopeBtn${s.charAt(0).toUpperCase() + s.slice(1)}`);
+                if (s === activeScopeMode) {
+                    btn.className = "py-2 px-4 border-b-2 border-indigo-600 text-indigo-600 font-bold";
+                } else {
+                    btn.className = "py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700";
+                }
+            });
+
+            let fetchUrl = '';
+            let labelText = '';
+
+            if (activeScopeMode === 'year') {
+                fetchUrl = `${API_URL}/reports/year/${activeSelectedYear}`;
+                labelText = `Full Year ${activeSelectedYear}`;
+            } else if (activeScopeMode === 'month') {
+                fetchUrl = `${API_URL}/reports/month/${activeSelectedMonth}`;
+                labelText = `Month Sheet ${activeSelectedMonth}`;
+            } else {
+                fetchUrl = `${API_URL}/reports/day/${targetString || activeSelectedDay}`;
+                labelText = `Single Day ${targetString || activeSelectedDay}`;
+                if (targetString) activeSelectedDay = targetString;
+            }
+
+            document.getElementById('activeDetailPeriodLabel').textContent = labelText;
+
+            try {
+                const res = await fetch(fetchUrl);
+                activeMonthReportRows = await res.json();
+
+                const collectiveProfit = activeMonthReportRows.reduce((sum, r) => sum + parseFloat(r.calculated_profit), 0);
+                document.getElementById('scopeProfitDisplay').textContent = `${Math.round(collectiveProfit).toLocaleString()} AMD`;
+
+                renderReportTable(activeMonthReportRows);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function changeReportScope(newScope) {
+            activeScopeMode = newScope;
+            showScopedDetails();
+        }
+
+        function renderReportTable(data) {
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No matching item records changed in this scope profile.</td></tr>`;
+                return;
+            }
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-gray-50 text-sm";
+                tr.innerHTML = `
+                    <td class="p-3 font-medium text-gray-800">${row.name}</td>
+                    <td class="p-3 text-blue-600 font-semibold">+ ${row.total_ins} units</td>
+                    <td class="p-3 text-red-500 font-semibold">- ${row.total_outs} units</td>
+                    <td class="p-3 text-green-600 font-bold text-right">${Math.round(Number(row.calculated_profit)).toLocaleString()} AMD</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('reportSearchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            const filtered = activeMonthReportRows.filter(item => item.name.toLowerCase().includes(query));
+            renderReportTable(filtered);
+        });
+
+        function navigateLedgerBack() {
+            const detailVisible = !document.getElementById('ledgerDetailView').classList.contains('hidden');
+            const dayVisible = !document.getElementById('ledgerDayView').classList.contains('hidden');
+            const monthVisible = !document.getElementById('ledgerMonthView').classList.contains('hidden');
+
+            if (detailVisible) {
+                renderDayView(activeSelectedMonth);
+            } else if (dayVisible) {
+                renderMonthView(activeSelectedYear);
+            } else if (monthVisible) {
+                renderYearView();
+            }
+        }
+
+        async function fetchItems() {
+            try {
+                const res = await fetch(`${API_URL}/items`);
+                allItems = await res.json();
+                renderTable(allItems);
+            } catch (err) {
+                console.error("Error sync items mapping:", err);
+            }
+        }
+
+        async function updateDailyProfitDisplay() {
+            try {
+                const res = await fetch(`${API_URL}/sales/daily-total`);
+                const data = await res.json();
+                document.getElementById('totalRevenueDisplay').textContent = Math.round(Number(data.revenue)).toLocaleString();
+                document.getElementById('totalCostDisplay').textContent = Math.round(Number(data.cost)).toLocaleString();
+                document.getElementById('pureProfitDisplay').textContent = Math.round(Number(data.pure_profit)).toLocaleString();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderTable(itemsToRender) {
+            const tbody = document.getElementById('inventoryTableBody');
+            tbody.innerHTML = '';
+
+            if (itemsToRender.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-400">No matching entries matching queries.</td></tr>`;
+                return;
+            }
+
+            itemsToRender.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = "border-b hover:bg-gray-50 text-sm";
+                row.innerHTML = `
+                    <td class="p-4 text-gray-500">#${item.id}</td>
+                    <td class="p-4 font-medium text-gray-800">${item.name}</td>
+                    <td class="p-4"><span class="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800 font-medium">${item.quantity} units</span></td>
+                    <td class="p-4 text-red-600 font-semibold">${Math.round(Number(item.cost_price)).toLocaleString()} AMD</td>
+                    <td class="p-4 text-green-600 font-semibold">${Math.round(Number(item.sale_price)).toLocaleString()} AMD</td>
+                    <td class="p-4 text-center space-x-3">
+                        <button onclick="handleEditSalePrice(${item.id}, '${item.name}', ${item.sale_price})" class="text-indigo-600 hover:text-indigo-900 font-medium text-xs">Set Sell Price</button>
+                        <button onclick="handleDeleteItem(${item.id})" class="text-red-500 hover:text-red-700 font-medium text-xs">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function handleEditSalePrice(id, name, currentSalePrice) {
+            const newPrice = prompt(`Set selling price in Armenia for "${name}":`, Math.round(parseFloat(currentSalePrice)));
+            if (newPrice === null || newPrice.trim() === '') return;
+
+            const parsedPrice = parseFloat(newPrice);
+            if (isNaN(parsedPrice) || parsedPrice < 0) { alert("Invalid inputs."); return; }
+
+            try {
+                await fetch(`${API_URL}/items/${id}/sale-price`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sale_price: parsedPrice })
+                });
+                await fetchItems();
+            } catch (err) { console.error(err); }
+        }
+
+        // --- Shared Autocomplete Logic Helper ---
+        function setupAutocomplete(inputEl, resultsEl, hiddenEl, matchFilter = () => true, formatRow = (i) => i.name) {
+            inputEl.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                if (!query) { hiddenEl.value = ''; resultsEl.classList.add('hidden'); return; }
+
+                const matches = allItems.filter(item => item.name.toLowerCase().includes(query) && matchFilter(item));
+                resultsEl.innerHTML = '';
+
+                matches.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = "p-2.5 text-xs hover:bg-gray-100 cursor-pointer flex justify-between border-b border-gray-50";
+                    div.innerHTML = formatRow(item);
+                    div.addEventListener('click', () => {
+                        inputEl.value = item.name;
+                        hiddenEl.value = item.id;
+                        resultsEl.classList.add('hidden');
+                    });
+                    resultsEl.appendChild(div);
+                });
+                resultsEl.classList.remove('hidden');
+            });
+        }
+
+        // Initialize autocompletes
+        const saleSearchInput = document.getElementById('saleSearchInput');
+        const autocompleteResults = document.getElementById('autocompleteResults');
+        const selectedItemId = document.getElementById('selectedItemId');
+        setupAutocomplete(saleSearchInput, autocompleteResults, selectedItemId, () => true,
+            i => `<span>${i.name}</span><span class="text-gray-400 font-bold">${i.quantity} left</span>`);
+
+        const bundleParentSearch = document.getElementById('bundleParentSearch');
+        const bundleParentAutocomplete = document.getElementById('bundleParentAutocomplete');
+        const selectedBundleParentId = document.getElementById('selectedBundleParentId');
+        setupAutocomplete(bundleParentSearch, bundleParentAutocomplete, selectedBundleParentId);
+
+        const bundleChildSearch = document.getElementById('bundleChildSearch');
+        const bundleChildAutocomplete = document.getElementById('bundleChildAutocomplete');
+        const selectedBundleChildId = document.getElementById('selectedBundleChildId');
+        setupAutocomplete(bundleChildSearch, bundleChildAutocomplete, selectedBundleChildId,
+            item => item.id.toString() !== selectedBundleParentId.value,
+            i => `<span>${i.name}</span><span class="text-red-400">Cost: ${Math.round(i.cost_price)}</span>`);
+
+        // Close autocompletes on external click
+        document.addEventListener('click', (e) => {
+            if (!saleSearchInput.contains(e.target) && !autocompleteResults.contains(e.target)) autocompleteResults.classList.add('hidden');
+            if (!addItemNameInput.contains(e.target) && !addStockAutocompleteResults.contains(e.target)) addStockAutocompleteResults.classList.add('hidden');
+            if (!bundleParentSearch.contains(e.target) && !bundleParentAutocomplete.contains(e.target)) bundleParentAutocomplete.classList.add('hidden');
+            if (!bundleChildSearch.contains(e.target) && !bundleChildAutocomplete.contains(e.target)) bundleChildAutocomplete.classList.add('hidden');
+        });
+
+        // Submit Bundle Composition
+        document.getElementById('bundleConfigForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const bundle_id = document.getElementById('selectedBundleParentId').value;
+            const comp_id = document.getElementById('selectedBundleChildId').value;
+            const qty = document.getElementById('bundleChildQty').value;
+
+            if (!bundle_id || !comp_id) { alert("Please select items from the autocomplete suggestions!"); return; }
+
+            try {
+                const res = await fetch(`${API_URL}/bundles`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bundle_id: parseInt(bundle_id),
+                        components: [{ id: parseInt(comp_id), qty: parseInt(qty) }]
+                    })
+                });
+                if (res.ok) {
+                    alert("Component linked successfully to bundle!");
+                    document.getElementById('bundleChildSearch').value = '';
+                    document.getElementById('selectedBundleChildId').value = '';
+                    document.getElementById('bundleChildQty').value = '1';
+                }
+            } catch(err) { console.error(err); }
+        });
+
+        document.getElementById('addItemForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = addItemNameInput.value;
+            const quantity = document.getElementById('itemQuantity').value;
+            const buy_price = itemBuyPriceInput.value;
+
+            try {
+                await fetch(`${API_URL}/items`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, quantity: parseInt(quantity), buy_price: parseFloat(buy_price) })
+                });
+                document.getElementById('addItemForm').reset();
+                autofillFeedback.textContent = '';
+                await fetchItems();
+                fetchProfitHistory();
+                updateDailyProfitDisplay();
+            } catch (err) { console.error(err); }
+        });
+
+        document.getElementById('logSaleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const item_id = selectedItemId.value;
+            const quantity_sold = document.getElementById('saleQuantity').value;
+
+            if (!item_id) { alert("Please select an item from suggestions!"); return; }
+
+            try {
+                const res = await fetch(`${API_URL}/sales`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_id: parseInt(item_id), quantity_sold: parseInt(quantity_sold) })
+                });
+
+                if (res.status !== 200) {
+                    const data = await res.json();
+                    alert(data.error);
+                } else {
+                    document.getElementById('logSaleForm').reset();
+                    selectedItemId.value = '';
+                    await fetchItems();
+                    updateDailyProfitDisplay();
+                    fetchProfitHistory();
+                }
+            } catch (err) { console.error(err); }
+        });
+
+        async function handleDeleteItem(id) {
+            if (confirm("Are you sure?")) {
+                await fetch(`${API_URL}/items/${id}`, { method: 'DELETE' });
+                fetchItems();
+            }
+        }
+
+        document.getElementById('tableSearchInput').addEventListener('input', (e) => {
+            renderTable(allItems.filter(item => item.name.toLowerCase().includes(e.target.value.toLowerCase())));
+        });
+
+        initApp();
+    </script>
+</body>
+</html>

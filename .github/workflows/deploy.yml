@@ -1,0 +1,65 @@
+name: Node.js CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Matches modern Node deployments
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Uncomment this line if you have written unit tests
+      # - name: Run Tests
+      #   run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. Add this step to punch through your home firewall securely
+      - name: Connect to Tailscale Network
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      # 2. This step will now succeed because it communicates over the Tailscale tunnel
+      - name: Execute Deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # 1. Force load the Node environment variables explicitly
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            # Load global npm binary paths manually just in case
+            export PATH=$PATH:$HOME/.npm-global/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin
+
+            # 2. Change into your warehouse-manager-app tracking directory
+            cd ~/warehouse-manager-app
+
+            # 3. Pull updates & trigger builds
+            git pull origin main
+            npm ci --production
+
+            # 4. Flush logs and dynamically reload/start the process
+            pm2 flush
+            pm2 startOrReload server.js --name "warehouse-dashboard"
+            pm2 save
