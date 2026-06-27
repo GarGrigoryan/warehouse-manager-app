@@ -45,7 +45,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd ~/warehouse-manager
+            cd ~/warehouse-manager-app
             git pull origin main
             npm ci --production
             pm2 flush
