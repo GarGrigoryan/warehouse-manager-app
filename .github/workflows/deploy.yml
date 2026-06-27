@@ -1,0 +1,48 @@
+name: Node.js CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Matches modern Node deployments
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Uncomment this line if you have written unit tests
+      # - name: Run Tests
+      #   run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute Deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/warehouse-manager
+
+            # Fetch latest changes safely
+            git pull origin main
+
+            # Install any new dependencies cleanly without breaking package-lock
+            npm ci --production
+
+            # Flush the PM2 memory log history and restart the app
+            pm2 flush
+            pm2 restart warehouse-dashboard
