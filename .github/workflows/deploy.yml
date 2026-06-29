@@ -55,15 +55,11 @@ jobs:
             # 2. Change into your warehouse-manager-app tracking directory
             cd ~/warehouse-manager-app
 
-            # 3. Force clean local state and pull fresh updates from main
-            git fetch origin main
-            git reset --hard origin/main
+            # 3. Pull updates & trigger builds
+            git pull origin main
+            npm ci --production
 
-            # 4. Install production dependencies safely
-            npm ci --omit=dev
-
-            # 5. Flush logs and restart safely without schema crashes
+            # 4. Flush logs and dynamically reload/start the process
             pm2 flush
-            pm2 restart server.js --name "warehouse-dashboard" || pm2 start server.js --name "warehouse-dashboard"
+            pm2 startOrReload server.js --name "warehouse-dashboard"
             pm2 save
-

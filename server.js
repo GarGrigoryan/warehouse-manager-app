@@ -11,11 +11,11 @@ app.use(cors());
 
 // Purely environment-driven pool config
 const pool = new Pool({
-  user: process.env.APP_DB_USER,
-  host: process.env.APP_DB_HOST,
-  database: process.env.APP_DB_NAME,
-  password: process.env.APP_DB_PASSWORD,
-  port: parseInt(process.env.APP_DB_PORT) || 5432,
+  user: process.env.APP_DB_USER,        // 👈 Added APP_
+  host: process.env.APP_DB_HOST,        // 👈 Added APP_
+  database: process.env.APP_DB_NAME,    // 👈 Added APP_
+  password: process.env.APP_DB_PASSWORD,// 👈 Added APP_
+  port: parseInt(process.env.APP_DB_PORT) || 5432, // 👈 Added APP_
 });
 
 const PORT = process.env.PORT || 5000;
@@ -80,13 +80,11 @@ app.get('/api/items', async (req, res) => {
     }
 });
 
-// POST: Restock item (Aligned keys directly with the frontend payload values)
+// POST: Restock item from Alibaba (Recalculates Weighted Average Cost Price)
 app.post('/api/items', async (req, res) => {
-    // 1. Swapped payload destructuring keys to match frontend form properties exactly
-    const { name, quantity, cost_price, sale_price } = req.body;
-    const incomingQty = parseInt(quantity) || 0;
-    const incomingBuyPrice = parseFloat(cost_price) || 0;
-    const incomingSellPrice = parseFloat(sale_price) || 0;
+    const { name, quantity, buy_price } = req.body;
+    const incomingQty = parseInt(quantity);
+    const incomingBuyPrice = parseFloat(buy_price);
 
     try {
         const checkItem = await pool.query("SELECT * FROM items WHERE LOWER(name) = LOWER($1)", [name.trim()]);
@@ -99,23 +97,22 @@ app.post('/api/items', async (req, res) => {
 
             const newQty = currentQty + incomingQty;
 
-            // Compute Weighted Average Cost
+            // Compute Weighted Average Cost for items coming from Alibaba
             let newWeightedCost = incomingBuyPrice;
             if (newQty > 0) {
                 newWeightedCost = ((currentQty * currentCost) + (incomingQty * incomingBuyPrice)) / newQty;
             }
             newWeightedCost = Math.round(newWeightedCost * 100) / 100;
 
-            // 2. Included updating sale_price dynamically when an existing item forms re-entry configuration
             const result = await pool.query(
-                "UPDATE items SET quantity = $1, cost_price = $2, sale_price = $3 WHERE id = $4 RETURNING *",
-                [newQty, newWeightedCost, incomingSellPrice, existing.id]
+                "UPDATE items SET quantity = $1, cost_price = $2 WHERE id = $3 RETURNING *",
+                [newQty, newWeightedCost, existing.id]
             );
             item = result.rows[0];
         } else {
             const result = await pool.query(
                 "INSERT INTO items (name, quantity, cost_price, sale_price) VALUES ($1, $2, $3, $4) RETURNING *",
-                [name.trim(), incomingQty, incomingBuyPrice, incomingSellPrice]
+                [name.trim(), incomingQty, incomingBuyPrice, incomingBuyPrice]
             );
             item = result.rows[0];
         }
@@ -132,8 +129,8 @@ app.post('/api/items', async (req, res) => {
     }
 });
 
-// PUT: Modify local selling price (Aligned path routing pattern with frontend table buttons)
-app.put('/api/items/:id/price', async (req, res) => {
+// PUT: Modify local selling price in Armenia
+app.put('/api/items/:id/sale-price', async (req, res) => {
     const { id } = req.params;
     const { sale_price } = req.body;
 
@@ -157,7 +154,7 @@ app.put('/api/items/:id/price', async (req, res) => {
     }
 });
 
-// POST: Log Sale
+// POST: Log Sale (Deducts child stock, but logs finances based ONLY on Parent Set A)
 app.post('/api/sales', async (req, res) => {
     const { item_id, quantity_sold } = req.body;
     const qty = parseInt(quantity_sold);
