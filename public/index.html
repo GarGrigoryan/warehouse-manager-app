@@ -47,10 +47,10 @@
                         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">ինքնարժեք (Դրամ / հատ)</label>
                         <input type="number" id="itemBuyPrice" placeholder="Հատի արժեք" required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                     </div>
-					<div>
-    					<label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Վաճառքի գին (Դրամ / հատ)</label>
-    					<input type="number" id="itemSellPrice" placeholder="Վաճառքի արժեք" required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-					</div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Վաճառքի գին (Դրամ / հատ)</label>
+                        <input type="number" id="itemSellPrice" placeholder="Վաճառքի արժեք" required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
                     <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition font-bold text-sm">Ավելացնել Ցանկին</button>
                 </form>
             </div>
@@ -175,9 +175,10 @@
 
     <script>
         const API_URL = '/api';
-		const itemSellPriceInput = document.getElementById('itemSellPrice');
+        const itemSellPriceInput = document.getElementById('itemSellPrice');
+        const addItemForm = document.getElementById('addItemForm');
         let allItems = [];
-        let filteredItems = []; // Keeps track of searched mutations
+        let filteredItems = [];
         let rawHistoryData = [];
         let activeSelectedYear = null;
         let activeSelectedMonth = null;
@@ -185,7 +186,6 @@
         let activeScopeMode = 'day';
         let activeMonthReportRows = [];
 
-        // Pagination State Configs
         let currentPage = 1;
         const itemsPerPage = 50;
 
@@ -195,7 +195,6 @@
             fetchProfitHistory();
         }
 
-        // Setup live table searching with reset to page 1
         document.getElementById('tableSearchInput').addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase().trim();
             filteredItems = allItems.filter(item => item.name.toLowerCase().includes(query));
@@ -205,52 +204,81 @@
 
         const addItemNameInput = document.getElementById('itemName');
         const itemBuyPriceInput = document.getElementById('itemBuyPrice');
+        const itemQuantityInput = document.getElementById('itemQuantity');
         const addStockAutocompleteResults = document.getElementById('addStockAutocompleteResults');
         const autofillFeedback = document.getElementById('autofillFeedback');
 
         addItemNameInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    if (!query) {
-        autofillFeedback.textContent = '';
-        addStockAutocompleteResults.classList.add('hidden');
-        return;
-    }
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+                autofillFeedback.textContent = '';
+                addStockAutocompleteResults.classList.add('hidden');
+                return;
+            }
 
-    const matches = allItems.filter(item => item.name.toLowerCase().includes(query));
-    addStockAutocompleteResults.innerHTML = '';
+            const matches = allItems.filter(item => item.name.toLowerCase().includes(query));
+            addStockAutocompleteResults.innerHTML = '';
 
-    const exactMatch = allItems.find(item => item.name.trim().toLowerCase() === query);
-    if (exactMatch) {
-        itemBuyPriceInput.value = Math.round(parseFloat(exactMatch.cost_price || 0));
-        itemSellPriceInput.value = Math.round(parseFloat(exactMatch.sale_price || 0));
-        autofillFeedback.textContent = `✨ Existing product! Current rates populated.`;
-    } else {
-        autofillFeedback.textContent = '';
-    }
+            const exactMatch = allItems.find(item => item.name.trim().toLowerCase() === query);
+            if (exactMatch) {
+                itemBuyPriceInput.value = Math.round(parseFloat(exactMatch.cost_price || 0));
+                itemSellPriceInput.value = Math.round(parseFloat(exactMatch.sale_price || 0));
+                autofillFeedback.textContent = `✨ Existing product! Current rates populated.`;
+            } else {
+                autofillFeedback.textContent = '';
+            }
 
-    if (matches.length === 0) {
-        addStockAutocompleteResults.classList.add('hidden');
-        return;
-    }
+            if (matches.length === 0) {
+                addStockAutocompleteResults.classList.add('hidden');
+                return;
+            }
 
-    matches.forEach(item => {
-        const optionDiv = document.createElement('div');
-        optionDiv.className = "p-3 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center transition border-b border-gray-50";
-        optionDiv.innerHTML = `
-            <span class="font-medium text-gray-800">${item.name}</span>
-            <span class="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded">Cost: ${Math.round(parseFloat(item.cost_price)).toLocaleString()} AMD</span>
-        `;
-        optionDiv.addEventListener('click', () => {
-            addItemNameInput.value = item.name;
-            itemBuyPriceInput.value = Math.round(parseFloat(item.cost_price));
-            itemSellPriceInput.value = Math.round(parseFloat(item.sale_price));
-            autofillFeedback.textContent = `✨ Existing product! Current rates populated.`;
-            addStockAutocompleteResults.classList.add('hidden');
+            matches.forEach(item => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = "p-3 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center transition border-b border-gray-50";
+                optionDiv.innerHTML = `
+                    <span class="font-medium text-gray-800">${item.name}</span>
+                    <span class="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded">Cost: ${Math.round(parseFloat(item.cost_price)).toLocaleString()} AMD</span>
+                `;
+                optionDiv.addEventListener('click', () => {
+                    addItemNameInput.value = item.name;
+                    itemBuyPriceInput.value = Math.round(parseFloat(item.cost_price));
+                    itemSellPriceInput.value = Math.round(parseFloat(item.sale_price));
+                    autofillFeedback.textContent = `✨ Existing product! Current rates populated.`;
+                    addStockAutocompleteResults.classList.add('hidden');
+                });
+                addStockAutocompleteResults.appendChild(optionDiv);
+            });
+            addStockAutocompleteResults.classList.remove('hidden');
         });
-        addStockAutocompleteResults.appendChild(optionDiv);
-    });
-    addStockAutocompleteResults.classList.remove('hidden');
-});
+
+        // Submit form handler to include Selling Price (sale_price)
+        addItemForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: addItemNameInput.value.trim(),
+                quantity: parseInt(itemQuantityInput.value),
+                cost_price: parseFloat(itemBuyPriceInput.value),
+                sale_price: parseFloat(itemSellPriceInput.value)
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/items`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    addItemForm.reset();
+                    autofillFeedback.textContent = '';
+                    await initApp();
+                } else {
+                    alert('Error saving product data.');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
 
         async function fetchProfitHistory() {
             try {
@@ -450,7 +478,7 @@
             try {
                 const res = await fetch(`${API_URL}/items`);
                 allItems = await res.json();
-                filteredItems = [...allItems]; // Sync local dynamic data
+                filteredItems = [...allItems];
                 renderTable();
             } catch (err) {
                 console.error("Error sync items mapping:", err);
@@ -469,11 +497,9 @@
             }
         }
 
-        // Refactored Pagination Table Rendering Loop
         function renderTable() {
             const tbody = document.getElementById('inventoryTableBody');
             tbody.innerHTML = '';
-
             const totalItems = filteredItems.length;
 
             if (totalItems === 0) {
@@ -483,14 +509,11 @@
                 return;
             }
 
-            // Calculation Boundaries
             const totalPages = Math.ceil(totalItems / itemsPerPage);
             if (currentPage > totalPages) currentPage = totalPages || 1;
 
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-
-            // Slice the active page payload
             const itemsToRender = filteredItems.slice(startIndex, endIndex);
 
             itemsToRender.forEach(item => {
@@ -510,19 +533,15 @@
                 tbody.appendChild(row);
             });
 
-            // Update Pagination Meta Info
             document.getElementById('paginationInfo').textContent = `${startIndex + 1}-${endIndex}-ը ընդհանուրից ${totalItems}`;
             renderPaginationControls(totalPages);
         }
 
-        // UI Builder for Pagination Action Elements
         function renderPaginationControls(totalPages) {
             const controlsContainer = document.getElementById('paginationControls');
             controlsContainer.innerHTML = '';
-
             if (totalPages <= 1) return;
 
-            // Prev Button
             const prevBtn = document.createElement('button');
             prevBtn.className = `px-2.5 py-1 text-xs border rounded-md font-semibold transition ${currentPage === 1 ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'}`;
             prevBtn.textContent = 'Նախորդ';
@@ -535,7 +554,6 @@
             });
             controlsContainer.appendChild(prevBtn);
 
-            // Adaptive block page numbers around active layout scope
             let startPage = Math.max(1, currentPage - 2);
             let endPage = Math.min(totalPages, startPage + 4);
             if (endPage - startPage < 4) {
@@ -553,7 +571,6 @@
                 controlsContainer.appendChild(pageBtn);
             }
 
-            // Next Button
             const nextBtn = document.createElement('button');
             nextBtn.className = `px-2.5 py-1 text-xs border rounded-md font-semibold transition ${currentPage === totalPages ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'}`;
             nextBtn.textContent = 'Հաջորդ';
@@ -567,76 +584,34 @@
             controlsContainer.appendChild(nextBtn);
         }
 
+        // Fixed and wrapped structural functions
         async function handleEditSalePrice(id, name, currentSalePrice) {
             const newPrice = prompt(`Set selling price in Armenia for "${name}":`, Math.round(parseFloat(currentSalePrice)));
-            if (newPrice === null || newPrice.trim() === '') return;
-
-            const parsedPrice = parseFloat(newPrice);
-            if (isNaN(parsedPrice) || parsedPrice < 0) { alert("Invalid inputs."); return; }
+            if (newPrice === null || newPrice.trim() === "") return;
 
             try {
-                await fetch(`${API_URL}/items/${id}/sale-price`, {
+                const res = await fetch(`${API_URL}/items/${id}/price`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sale_price: parsedPrice })
+                    body: JSON.stringify({ sale_price: parseFloat(newPrice) })
                 });
-                await fetchItems();
-            } catch (err) { console.error(err); }
+                if (res.ok) await initApp();
+            } catch(err) {
+                console.error(err);
+            }
         }
 
-        // --- Shared Autocomplete Logic Helper ---
-        function setupAutocomplete(inputEl, resultsEl, hiddenEl, matchFilter = () => true, formatRow = (i) => i.name) {
-            inputEl.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase().trim();
-                if (!query) { hiddenEl.value = ''; resultsEl.classList.add('hidden'); return; }
-
-                const matches = allItems.filter(item => item.name.toLowerCase().includes(query) && matchFilter(item));
-                resultsEl.innerHTML = '';
-
-                matches.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = "p-2.5 text-xs hover:bg-gray-100 cursor-pointer flex justify-between border-b border-gray-50";
-                    div.innerHTML = formatRow(item);
-                    div.addEventListener('click', () => {
-                        inputEl.value = item.name;
-                        hiddenEl.value = item.id;
-                        resultsEl.classList.add('hidden');
-                    });
-                    resultsEl.appendChild(div);
-                });
-                resultsEl.classList.remove('hidden');
-            });
+        async function handleDeleteItem(id) {
+            if (!confirm("Are you sure you want to delete this product item?")) return;
+            try {
+                const res = await fetch(`${API_URL}/items/${id}`, { method: 'DELETE' });
+                if (res.ok) await initApp();
+            } catch (err) {
+                console.error(err);
+            }
         }
 
-        // Initialize autocompletes
-        const saleSearchInput = document.getElementById('saleSearchInput');
-        const autocompleteResults = document.getElementById('autocompleteResults');
-        const selectedItemId = document.getElementById('selectedItemId');
-        setupAutocomplete(saleSearchInput, autocompleteResults, selectedItemId, () => true,
-            i => `<span>${i.name}</span><span class="text-gray-400 font-bold">${i.quantity} left</span>`);
-
-        const bundleParentSearch = document.getElementById('bundleParentSearch');
-        const bundleParentAutocomplete = document.getElementById('bundleParentAutocomplete');
-        const selectedBundleParentId = document.getElementById('selectedBundleParentId');
-        setupAutocomplete(bundleParentSearch, bundleParentAutocomplete, selectedBundleParentId);
-
-        const bundleChildSearch = document.getElementById('bundleChildSearch');
-        const bundleChildAutocomplete = document.getElementById('bundleChildAutocomplete');
-        const selectedBundleChildId = document.getElementById('selectedBundleChildId');
-        setupAutocomplete(bundleChildSearch, bundleChildAutocomplete, selectedBundleChildId,
-            item => item.id.toString() !== selectedBundleParentId.value,
-            i => `<span>${i.name}</span><span class="text-red-400">Cost: ${Math.round(i.cost_price)}</span>`);
-
-        // Close autocompletes on external click
-        document.addEventListener('click', (e) => {
-            if (!saleSearchInput.contains(e.target) && !autocompleteResults.contains(e.target)) autocompleteResults.classList.add('hidden');
-            if (!addItemNameInput.contains(e.target) && !addStockAutocompleteResults.contains(e.target)) addStockAutocompleteResults.classList.add('hidden');
-            if (!bundleParentSearch.contains(e.target) && !bundleParentAutocomplete.contains(e.target)) bundleParentAutocomplete.classList.add('hidden');
-            if (!bundleChildSearch.contains(e.target) && !bundleChildAutocomplete.contains(e.target)) bundleChildAutocomplete.classList.add('hidden');
-        });
-
-        // Initialize App UI
-        initApp();
+        window.onload = initApp;
     </script>
 </body>
 </html>
