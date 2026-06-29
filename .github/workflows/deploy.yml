@@ -66,4 +66,3 @@ jobs:
             pm2 flush
             pm2 restart server.js --name "warehouse-dashboard" || pm2 start server.js --name "warehouse-dashboard"
             pm2 save
-
