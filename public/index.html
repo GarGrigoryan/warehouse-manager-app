@@ -47,6 +47,10 @@
                         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">ինքնարժեք (Դրամ / հատ)</label>
                         <input type="number" id="itemBuyPrice" placeholder="Հատի արժեք" required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                     </div>
+					<div>
+    					<label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Վաճառքի գին (Դրամ / հատ)</label>
+    					<input type="number" id="itemSellPrice" placeholder="Վաճառքի արժեք" required class="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+					</div>
                     <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition font-bold text-sm">Ավելացնել Ցանկին</button>
                 </form>
             </div>
@@ -171,6 +175,7 @@
 
     <script>
         const API_URL = '/api';
+		const itemSellPriceInput = document.getElementById('itemSellPrice');
         let allItems = [];
         let filteredItems = []; // Keeps track of searched mutations
         let rawHistoryData = [];
@@ -204,46 +209,48 @@
         const autofillFeedback = document.getElementById('autofillFeedback');
 
         addItemNameInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            if (!query) {
-                autofillFeedback.textContent = '';
-                addStockAutocompleteResults.classList.add('hidden');
-                return;
-            }
+    const query = e.target.value.toLowerCase().trim();
+    if (!query) {
+        autofillFeedback.textContent = '';
+        addStockAutocompleteResults.classList.add('hidden');
+        return;
+    }
 
-            const matches = allItems.filter(item => item.name.toLowerCase().includes(query));
-            addStockAutocompleteResults.innerHTML = '';
+    const matches = allItems.filter(item => item.name.toLowerCase().includes(query));
+    addStockAutocompleteResults.innerHTML = '';
 
-            const exactMatch = allItems.find(item => item.name.trim().toLowerCase() === query);
-            if (exactMatch) {
-                itemBuyPriceInput.value = Math.round(parseFloat(exactMatch.cost_price || 0));
-                autofillFeedback.textContent = `✨ Existing product! Current average Alibaba cost populated.`;
-            } else {
-                autofillFeedback.textContent = '';
-            }
+    const exactMatch = allItems.find(item => item.name.trim().toLowerCase() === query);
+    if (exactMatch) {
+        itemBuyPriceInput.value = Math.round(parseFloat(exactMatch.cost_price || 0));
+        itemSellPriceInput.value = Math.round(parseFloat(exactMatch.sale_price || 0));
+        autofillFeedback.textContent = `✨ Existing product! Current rates populated.`;
+    } else {
+        autofillFeedback.textContent = '';
+    }
 
-            if (matches.length === 0) {
-                addStockAutocompleteResults.classList.add('hidden');
-                return;
-            }
+    if (matches.length === 0) {
+        addStockAutocompleteResults.classList.add('hidden');
+        return;
+    }
 
-            matches.forEach(item => {
-                const optionDiv = document.createElement('div');
-                optionDiv.className = "p-3 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center transition border-b border-gray-50";
-                optionDiv.innerHTML = `
-                    <span class="font-medium text-gray-800">${item.name}</span>
-                    <span class="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded">Cost: ${Math.round(parseFloat(item.cost_price)).toLocaleString()} AMD</span>
-                `;
-                optionDiv.addEventListener('click', () => {
-                    addItemNameInput.value = item.name;
-                    itemBuyPriceInput.value = Math.round(parseFloat(item.cost_price));
-                    autofillFeedback.textContent = `✨ Existing product! Current average Alibaba cost populated.`;
-                    addStockAutocompleteResults.classList.add('hidden');
-                });
-                addStockAutocompleteResults.appendChild(optionDiv);
-            });
-            addStockAutocompleteResults.classList.remove('hidden');
+    matches.forEach(item => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = "p-3 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center transition border-b border-gray-50";
+        optionDiv.innerHTML = `
+            <span class="font-medium text-gray-800">${item.name}</span>
+            <span class="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded">Cost: ${Math.round(parseFloat(item.cost_price)).toLocaleString()} AMD</span>
+        `;
+        optionDiv.addEventListener('click', () => {
+            addItemNameInput.value = item.name;
+            itemBuyPriceInput.value = Math.round(parseFloat(item.cost_price));
+            itemSellPriceInput.value = Math.round(parseFloat(item.sale_price));
+            autofillFeedback.textContent = `✨ Existing product! Current rates populated.`;
+            addStockAutocompleteResults.classList.add('hidden');
         });
+        addStockAutocompleteResults.appendChild(optionDiv);
+    });
+    addStockAutocompleteResults.classList.remove('hidden');
+});
 
         async function fetchProfitHistory() {
             try {
