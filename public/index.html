@@ -253,32 +253,39 @@
         });
 
         // Submit form handler to include Selling Price (sale_price)
-        addItemForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                name: addItemNameInput.value.trim(),
-                quantity: parseInt(itemQuantityInput.value),
-                cost_price: parseFloat(itemBuyPriceInput.value),
-                sale_price: parseFloat(itemSellPriceInput.value)
-            };
+		addItemForm.addEventListener('submit', async (e) => {
+			e.preventDefault();
 
-            try {
-                const res = await fetch(`${API_URL}/items`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (res.ok) {
-                    addItemForm.reset();
-                    autofillFeedback.textContent = '';
-                    await initApp();
-                } else {
-                    alert('Error saving product data.');
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        });
+			// Grab the inputs directly to avoid out-of-scope undefined values
+			const nameValue = document.getElementById('itemName').value.trim();
+			const qtyValue = parseInt(document.getElementById('itemQuantity').value) || 0;
+			const buyPriceValue = parseFloat(document.getElementById('itemBuyPrice').value) || 0;
+			const sellPriceValue = parseFloat(document.getElementById('itemSellPrice').value) || 0;
+
+			const payload = {
+				name: nameValue,
+				quantity: qtyValue,
+				cost_price: buyPriceValue,
+				sale_price: sellPriceValue
+			};
+
+			try {
+				const res = await fetch(`${API_URL}/items`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload)
+				});
+				if (res.ok) {
+					addItemForm.reset();
+					document.getElementById('autofillFeedback').textContent = '';
+					await initApp();
+				} else {
+					alert('Error saving product data.');
+				}
+			} catch (err) {
+				console.error(err);
+			}
+		});
 
         async function fetchProfitHistory() {
             try {
