@@ -9,7 +9,7 @@
 <body class="bg-gray-100 p-8">
 
     <div class="max-w-5xl mx-auto">
-        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">🏭 Պահեստի և Առեվտրի Կայք</h1>
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">🏭 Պահեստի և Առևտրի Կայք</h1>
 
         <div class="bg-white p-6 rounded-lg shadow mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4 border-l-8 border-indigo-600">
             <div class="bg-blue-50 p-4 rounded border border-blue-100">
@@ -288,6 +288,190 @@
             } catch (err) {
                 console.error(err);
             }
+        });
+
+        // --- Sale search autocomplete ---
+        const saleSearchInput = document.getElementById('saleSearchInput');
+        const selectedItemIdInput = document.getElementById('selectedItemId');
+        const autocompleteResults = document.getElementById('autocompleteResults');
+
+        saleSearchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            selectedItemIdInput.value = ''; // clear selection until they pick again
+
+            if (!query) {
+                autocompleteResults.classList.add('hidden');
+                return;
+            }
+
+            const matches = allItems.filter(item => item.name.toLowerCase().includes(query));
+            autocompleteResults.innerHTML = '';
+
+            if (matches.length === 0) {
+                autocompleteResults.classList.add('hidden');
+                return;
+            }
+
+            matches.forEach(item => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = "p-3 text-sm hover:bg-green-50 cursor-pointer flex justify-between items-center transition border-b border-gray-50";
+                optionDiv.innerHTML = `
+                    <span class="font-medium text-gray-800">${item.name}</span>
+                    <span class="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded">${item.quantity || 0} available</span>
+                `;
+                optionDiv.addEventListener('click', () => {
+                    saleSearchInput.value = item.name;
+                    selectedItemIdInput.value = item.id;
+                    autocompleteResults.classList.add('hidden');
+                });
+                autocompleteResults.appendChild(optionDiv);
+            });
+            autocompleteResults.classList.remove('hidden');
+        });
+
+        // --- Log Sale submit handler ---
+        const logSaleForm = document.getElementById('logSaleForm');
+        logSaleForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const itemId = selectedItemIdInput.value;
+            const qty = parseInt(document.getElementById('saleQuantity').value) || 0;
+
+            if (!itemId) {
+                alert('Խնդրում ենք ընտրել ապրանք ցանկից։');
+                return;
+            }
+            if (qty <= 0) {
+                alert('Խնդրում ենք մուտքագրել վավեր քանակ։');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/sales`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_id: itemId, quantity_sold: qty })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    logSaleForm.reset();
+                    selectedItemIdInput.value = '';
+                    await initApp();
+                } else {
+                    alert(data.error || 'Վաճառքի գրանցման սխալ։');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Կապի սխալ սերվերի հետ։');
+            }
+        });
+
+        // --- Bundle parent/child autocomplete ---
+        const bundleParentSearch = document.getElementById('bundleParentSearch');
+        const selectedBundleParentId = document.getElementById('selectedBundleParentId');
+        const bundleParentAutocomplete = document.getElementById('bundleParentAutocomplete');
+
+        function wireBundleAutocomplete(inputEl, hiddenIdEl, resultsEl) {
+            inputEl.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                hiddenIdEl.value = '';
+
+                if (!query) {
+                    resultsEl.classList.add('hidden');
+                    return;
+                }
+
+                const matches = allItems.filter(item => item.name.toLowerCase().includes(query));
+                resultsEl.innerHTML = '';
+
+                if (matches.length === 0) {
+                    resultsEl.classList.add('hidden');
+                    return;
+                }
+
+                matches.forEach(item => {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = "p-2 text-sm hover:bg-purple-50 cursor-pointer border-b border-gray-50";
+                    optionDiv.textContent = item.name;
+                    optionDiv.addEventListener('click', () => {
+                        inputEl.value = item.name;
+                        hiddenIdEl.value = item.id;
+                        resultsEl.classList.add('hidden');
+                    });
+                    resultsEl.appendChild(optionDiv);
+                });
+                resultsEl.classList.remove('hidden');
+            });
+        }
+
+        wireBundleAutocomplete(bundleParentSearch, selectedBundleParentId, bundleParentAutocomplete);
+
+        const bundleChildSearch = document.getElementById('bundleChildSearch');
+        const selectedBundleChildId = document.getElementById('selectedBundleChildId');
+        const bundleChildAutocomplete = document.getElementById('bundleChildAutocomplete');
+
+        wireBundleAutocomplete(bundleChildSearch, selectedBundleChildId, bundleChildAutocomplete);
+
+        // --- Bundle config submit handler ---
+        const bundleConfigForm = document.getElementById('bundleConfigForm');
+        bundleConfigForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const parentId = selectedBundleParentId.value;
+            const childId = selectedBundleChildId.value;
+            const childQty = parseInt(document.getElementById('bundleChildQty').value) || 1;
+
+            if (!parentId || !childId) {
+                alert('Խնդրում ենք ընտրել երկու ապրանք ցանկից։');
+                return;
+            }
+            if (parentId === childId) {
+                alert('Փաթեթը չի կարող պարունակել ինքն իրեն։');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/bundles`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bundle_id: parentId,
+                        components: [{ id: childId, qty: childQty }]
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    bundleConfigForm.reset();
+                    selectedBundleParentId.value = '';
+                    selectedBundleChildId.value = '';
+                } else {
+                    alert(data.error || 'Փաթեթի կապման սխալ։');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Կապի սխալ սերվերի հետ։');
+            }
+        });
+
+        // --- Click outside to close any open autocomplete dropdown ---
+        document.addEventListener('click', (e) => {
+            const dropdownGroups = [
+                { input: addItemNameInput, results: addStockAutocompleteResults },
+                { input: saleSearchInput, results: autocompleteResults },
+                { input: bundleParentSearch, results: bundleParentAutocomplete },
+                { input: bundleChildSearch, results: bundleChildAutocomplete }
+            ];
+
+            dropdownGroups.forEach(({ input, results }) => {
+                const clickedInsideGroup = input.contains(e.target) || results.contains(e.target);
+                if (!clickedInsideGroup) {
+                    results.classList.add('hidden');
+                }
+            });
         });
 
         async function fetchProfitHistory() {
