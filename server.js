@@ -5,17 +5,17 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
 
-const app = express(); // Keeping your express architecture
+const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Purely environment-driven pool config
+// Purely environment-driven pool config with safe fallback defaults
 const pool = new Pool({
-  user: process.env.APP_DB_USER,
-  host: process.env.APP_DB_HOST,
-  database: process.env.APP_DB_NAME,
-  password: process.env.APP_DB_PASSWORD,
-  port: parseInt(process.env.APP_DB_PORT) || 5432,
+  user: process.env.APP_DB_USER || process.env.DB_USER,
+  host: process.env.APP_DB_HOST || process.env.DB_HOST || '127.0.0.1',
+  database: process.env.APP_DB_NAME || process.env.DB_NAME || 'warehouse_db',
+  password: process.env.APP_DB_PASSWORD || process.env.DB_PASSWORD,
+  port: parseInt(process.env.APP_DB_PORT || process.env.DB_PORT) || 5432,
 });
 
 const PORT = process.env.PORT || 5000;
@@ -24,16 +24,22 @@ const initializeDatabase = async () => {
     try {
         await pool.query("BEGIN");
 
-        // 1. Core items table
+        // 1. Core items table (including image_url and description)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS items (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL UNIQUE,
                 quantity INTEGER NOT NULL DEFAULT 0,
                 cost_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-                sale_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00
+                sale_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+                image_url TEXT DEFAULT '',
+                description TEXT DEFAULT ''
             );
         `);
+
+        // Safely alter existing database tables if they were created before image_url/description were added
+        await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '';`);
+        await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';`);
 
         // 2. Bundle relationship configuration structure
         await pool.query(`
@@ -60,7 +66,7 @@ const initializeDatabase = async () => {
         `);
 
         await pool.query("COMMIT");
-        console.log('✅ Database tables initialized successfully with split pricing constraints.');
+        console.log('✅ Database tables initialized successfully.');
     } catch (err) {
         await pool.query("ROLLBACK");
         console.error('❌ Database Initialization Error:', err.message);
@@ -80,13 +86,14 @@ app.get('/api/items', async (req, res) => {
     }
 });
 
-// POST: Restock item (Aligned keys directly with the frontend payload values)
+// POST: Restock or create item (Handles image_url & description)
 app.post('/api/items', async (req, res) => {
-    // 1. Swapped payload destructuring keys to match frontend form properties exactly
-    const { name, quantity, cost_price, sale_price } = req.body;
+    const { name, quantity, cost_price, sale_price, image_url, description } = req.body;
     const incomingQty = parseInt(quantity) || 0;
     const incomingBuyPrice = parseFloat(cost_price) || 0;
     const incomingSellPrice = parseFloat(sale_price) || 0;
+    const img = image_url || '';
+    const desc = description || '';
 
     try {
         const checkItem = await pool.query("SELECT * FROM items WHERE LOWER(name) = LOWER($1)", [name.trim()]);
@@ -106,16 +113,15 @@ app.post('/api/items', async (req, res) => {
             }
             newWeightedCost = Math.round(newWeightedCost * 100) / 100;
 
-            // 2. Included updating sale_price dynamically when an existing item forms re-entry configuration
             const result = await pool.query(
-                "UPDATE items SET quantity = $1, cost_price = $2, sale_price = $3 WHERE id = $4 RETURNING *",
-                [newQty, newWeightedCost, incomingSellPrice, existing.id]
+                "UPDATE items SET quantity = $1, cost_price = $2, sale_price = $3, image_url = $4, description = $5 WHERE id = $6 RETURNING *",
+                [newQty, newWeightedCost, incomingSellPrice, img, desc, existing.id]
             );
             item = result.rows[0];
         } else {
             const result = await pool.query(
-                "INSERT INTO items (name, quantity, cost_price, sale_price) VALUES ($1, $2, $3, $4) RETURNING *",
-                [name.trim(), incomingQty, incomingBuyPrice, incomingSellPrice]
+                "INSERT INTO items (name, quantity, cost_price, sale_price, image_url, description) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+                [name.trim(), incomingQty, incomingBuyPrice, incomingSellPrice, img, desc]
             );
             item = result.rows[0];
         }
@@ -132,7 +138,7 @@ app.post('/api/items', async (req, res) => {
     }
 });
 
-// PUT: Modify local selling price (Aligned path routing pattern with frontend table buttons)
+// PUT: Modify local selling price
 app.put('/api/items/:id/price', async (req, res) => {
     const { id } = req.params;
     const { sale_price } = req.body;
@@ -221,7 +227,7 @@ app.post('/api/sales', async (req, res) => {
     }
 });
 
-// GET: Fetch detailed summary metrics (Revenue, Cost, Pure Net Margins)
+// GET: Fetch daily metrics
 app.get('/api/sales/daily-total', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -260,7 +266,7 @@ app.get('/api/sales/history', async (req, res) => {
     }
 });
 
-// GET: Fetch all unique days that have activity inside a specific month
+// GET: Fetch all unique days inside a specific month
 app.get('/api/reports/months/:month/days', async (req, res) => {
     const { month } = req.params;
     try {
@@ -277,7 +283,7 @@ app.get('/api/reports/months/:month/days', async (req, res) => {
     }
 });
 
-// GET: Itemized Breakdown for an Entire Year
+// GET: Itemized Breakdown for Year
 app.get('/api/reports/year/:year', async (req, res) => {
     const { year } = req.params;
     try {
@@ -297,7 +303,7 @@ app.get('/api/reports/year/:year', async (req, res) => {
     }
 });
 
-// GET: Itemized Breakdown for an Entire Month
+// GET: Itemized Breakdown for Month
 app.get('/api/reports/month/:month', async (req, res) => {
     const { month } = req.params;
     try {
@@ -317,7 +323,7 @@ app.get('/api/reports/month/:month', async (req, res) => {
     }
 });
 
-// GET: Itemized Breakdown for a Single Day
+// GET: Itemized Breakdown for Day
 app.get('/api/reports/day/:date', async (req, res) => {
     const { date } = req.params;
     try {
@@ -337,7 +343,7 @@ app.get('/api/reports/day/:date', async (req, res) => {
     }
 });
 
-// DELETE: Remove an item from the warehouse catalog
+// DELETE: Remove item
 app.delete('/api/items/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -348,7 +354,7 @@ app.delete('/api/items/:id', async (req, res) => {
     }
 });
 
-// POST: Create a bundle relationship
+// POST: Bundle creation
 app.post('/api/bundles', async (req, res) => {
     const { bundle_id, components } = req.body;
     try {
@@ -373,5 +379,5 @@ app.post('/api/bundles', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`🚀 Warehouse App Server running on port ${PORT}`);
 });
