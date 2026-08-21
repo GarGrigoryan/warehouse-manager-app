@@ -163,6 +163,7 @@ app.put('/api/items/:id/price', async (req, res) => {
     }
 });
 
+// POST: Log Sale
 app.post('/api/sales', async (req, res) => {
     const { item_id, quantity_sold } = req.body;
     const qty = parseInt(quantity_sold);
@@ -178,7 +179,7 @@ app.post('/api/sales', async (req, res) => {
         }
 
         const componentsRes = await pool.query(`
-            SELECT bi.component_id, bi.quantity_needed, i.name, i.quantity as stock, i.sale_price, i.cost_price
+            SELECT bi.component_id, bi.quantity_needed, i.name, i.quantity as stock
             FROM bundle_items bi
             JOIN items i ON bi.component_id = i.id
             WHERE bi.bundle_id = $1
@@ -194,23 +195,15 @@ app.post('/api/sales', async (req, res) => {
                 if (comp.stock < totalNeeded) {
                     await pool.query("ROLLBACK");
                     return res.status(400).json({
-                        error: `Not enough stock for component: "${comp.name}"!`
+                        error: `Not enough stock for component: "${comp.name}"! Need ${totalNeeded}, but only have ${comp.stock} available.`
                     });
                 }
             }
 
-            // Deduct stock AND log each component, OR log the parent bundle
             for (let comp of components) {
                 const totalNeeded = comp.quantity_needed * qty;
                 await pool.query("UPDATE items SET quantity = quantity - $1 WHERE id = $2", [totalNeeded, comp.component_id]);
             }
-
-            // Log the parent bundle sale explicitly so turnover is recorded
-            await pool.query(
-                `INSERT INTO inventory_log (item_id, item_name, movement_type, quantity_changed, sold_at_sale_price, captured_cost_price)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [mainItem.id, mainItem.name, 'OUT', qty, mainItem.sale_price, mainItem.cost_price]
-            );
 
         } else {
             if (mainItem.quantity < qty) {
@@ -218,13 +211,13 @@ app.post('/api/sales', async (req, res) => {
                 return res.status(400).json({ error: "Not enough stock!" });
             }
             await pool.query("UPDATE items SET quantity = quantity - $1 WHERE id = $2", [qty, item_id]);
-
-            await pool.query(
-                `INSERT INTO inventory_log (item_id, item_name, movement_type, quantity_changed, sold_at_sale_price, captured_cost_price)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [mainItem.id, mainItem.name, 'OUT', qty, mainItem.sale_price, mainItem.cost_price]
-            );
         }
+
+        await pool.query(
+            `INSERT INTO inventory_log (item_id, item_name, movement_type, quantity_changed, sold_at_sale_price, captured_cost_price)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [mainItem.id, mainItem.name, 'OUT', qty, mainItem.sale_price, mainItem.cost_price]
+        );
 
         await pool.query("COMMIT");
         res.json({ message: "Sale processed successfully", isBundle });
@@ -234,15 +227,15 @@ app.post('/api/sales', async (req, res) => {
     }
 });
 
+// GET: Fetch daily metrics
 app.get('/api/sales/daily-total', async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
-                COALESCE(SUM(quantity_changed * sold_at_sale_price), 0) as total_revenue,
-                COALESCE(SUM(quantity_changed * captured_cost_price), 0) as total_cost
+                SUM(quantity_changed * sold_at_sale_price) as total_revenue,
+                SUM(quantity_changed * captured_cost_price) as total_cost
             FROM inventory_log
-            WHERE movement_type = 'OUT'
-              AND TO_CHAR(log_date, 'YYYY-MM-DD') = TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')
+            WHERE movement_type = 'OUT' AND log_date >= CURRENT_DATE
         `);
 
         const revenue = parseFloat(result.rows[0].total_revenue || 0);
