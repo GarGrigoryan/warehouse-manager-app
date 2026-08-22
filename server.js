@@ -163,10 +163,11 @@ app.put('/api/items/:id/price', async (req, res) => {
     }
 });
 
-// POST: Log Sale
+// POST: Log Sale (Handles both normal sales & quantity-only stock deductions)
 app.post('/api/sales', async (req, res) => {
-    const { item_id, quantity_sold } = req.body;
+    const { item_id, quantity_sold, is_quantity_only } = req.body;
     const qty = parseInt(quantity_sold);
+    const isQtyOnly = Boolean(is_quantity_only);
 
     try {
         await pool.query("BEGIN");
@@ -204,7 +205,6 @@ app.post('/api/sales', async (req, res) => {
                 const totalNeeded = comp.quantity_needed * qty;
                 await pool.query("UPDATE items SET quantity = quantity - $1 WHERE id = $2", [totalNeeded, comp.component_id]);
             }
-
         } else {
             if (mainItem.quantity < qty) {
                 await pool.query("ROLLBACK");
@@ -213,10 +213,13 @@ app.post('/api/sales', async (req, res) => {
             await pool.query("UPDATE items SET quantity = quantity - $1 WHERE id = $2", [qty, item_id]);
         }
 
+        const loggedSalePrice = isQtyOnly ? 0.00 : mainItem.sale_price;
+        const loggedCostPrice = isQtyOnly ? 0.00 : mainItem.cost_price;
+
         await pool.query(
             `INSERT INTO inventory_log (item_id, item_name, movement_type, quantity_changed, sold_at_sale_price, captured_cost_price)
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [mainItem.id, mainItem.name, 'OUT', qty, mainItem.sale_price, mainItem.cost_price]
+            [mainItem.id, mainItem.name, 'OUT', qty, loggedSalePrice, loggedCostPrice]
         );
 
         await pool.query("COMMIT");
