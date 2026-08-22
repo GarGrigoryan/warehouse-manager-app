@@ -350,44 +350,55 @@
         autocompleteResults?.classList.remove('hidden');
     });
 
-    // --- Log Sale submit handler ---
-    const logSaleForm = document.getElementById('logSaleForm');
-    logSaleForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    // Function to handle stock deduction API calls
+	async function submitSale(isQuantityOnly = false) {
+		const itemId = selectedItemIdInput?.value;
+		const qty = parseInt(document.getElementById('saleQuantity')?.value) || 0;
 
-        const itemId = selectedItemIdInput?.value;
-        const qty = parseInt(document.getElementById('saleQuantity')?.value) || 0;
+		if (!itemId) {
+			alert('Խնդրում ենք ընտրել ապրանք ցանկից։');
+			return;
+		}
+		if (qty <= 0) {
+			alert('Խնդրում ենք մուտքագրել վավեր քանակ։');
+			return;
+		}
 
-        if (!itemId) {
-            alert('Խնդրում ենք ընտրել ապրանք ցանկից։');
-            return;
-        }
-        if (qty <= 0) {
-            alert('Խնդրում ենք մուտքագրել վավեր քանակ։');
-            return;
-        }
+		try {
+			const res = await fetch(`${API_URL}/sales`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					item_id: itemId,
+					quantity_sold: qty,
+					is_quantity_only: isQuantityOnly
+				})
+			});
 
-        try {
-            const res = await fetch(`${API_URL}/sales`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ item_id: itemId, quantity_sold: qty })
-            });
+			const data = await res.json();
 
-            const data = await res.json();
+			if (res.ok) {
+				logSaleForm.reset();
+				if (selectedItemIdInput) selectedItemIdInput.value = '';
+				await initApp();
+			} else {
+				alert(data.error || 'Գործողության սխալ։');
+			}
+		} catch (err) {
+			console.error(err);
+			alert('Կապի սխալ սերվերի հետ։');
+		}
+	}
 
-            if (res.ok) {
-                logSaleForm.reset();
-                if (selectedItemIdInput) selectedItemIdInput.value = '';
-                await initApp();
-            } else {
-                alert(data.error || 'Վաճառքի գրանցման սխալ։');
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Կապի սխալ սերվերի հետ։');
-        }
-    });
+	// Attach listeners to both buttons
+	document.getElementById('logSaleForm')?.addEventListener('submit', (e) => {
+		e.preventDefault();
+		submitSale(false); // Standard Sale
+	});
+
+	document.getElementById('btnRegisterQtyOnlySale')?.addEventListener('click', () => {
+		submitSale(true); // Quantity-only deduction (No revenue/profit added)
+	});
 
     // --- Bundle parent/child autocomplete ---
     const bundleParentSearch = document.getElementById('bundleParentSearch');
