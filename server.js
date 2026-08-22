@@ -238,9 +238,9 @@ app.get('/api/sales/daily-total', async (req, res) => {
             WHERE movement_type = 'OUT' AND log_date >= CURRENT_DATE
         `);
 
-        // Calculate sum of sale_price across all items in warehouse
+        // Sum (sale_price * quantity) for all items in inventory
         const itemsResult = await pool.query(`
-            SELECT SUM(sale_price) as total_items_sale_price FROM items
+            SELECT SUM(sale_price * quantity) as total_items_sale_price FROM items
         `);
 
         const revenue = parseFloat(salesResult.rows[0].total_revenue || 0);
