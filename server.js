@@ -230,7 +230,7 @@ app.post('/api/sales', async (req, res) => {
 // GET: Fetch daily metrics
 app.get('/api/sales/daily-total', async (req, res) => {
     try {
-        const result = await pool.query(`
+        const salesResult = await pool.query(`
             SELECT
                 SUM(quantity_changed * sold_at_sale_price) as total_revenue,
                 SUM(quantity_changed * captured_cost_price) as total_cost
@@ -238,9 +238,15 @@ app.get('/api/sales/daily-total', async (req, res) => {
             WHERE movement_type = 'OUT' AND log_date >= CURRENT_DATE
         `);
 
-        const revenue = parseFloat(result.rows[0].total_revenue || 0);
-        const cost = parseFloat(result.rows[0].total_cost || 0);
-        const pure_profit = revenue - cost;
+        // Query the sum of current sale_price of all items
+        const itemsResult = await pool.query(`
+            SELECT SUM(sale_price) as total_items_sale_price FROM items
+        `);
+
+        const revenue = parseFloat(salesResult.rows[0].total_revenue || 0);
+        const cost = parseFloat(salesResult.rows[0].total_cost || 0);
+        // Replace pure_profit calculation with total sum of all items' sale_price
+        const pure_profit = parseFloat(itemsResult.rows[0].total_items_sale_price || 0);
 
         res.json({ revenue, cost, pure_profit });
     } catch (err) {
