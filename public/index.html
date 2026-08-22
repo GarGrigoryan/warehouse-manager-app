@@ -731,10 +731,12 @@
             const revEl = document.getElementById('totalRevenueDisplay');
             const costEl = document.getElementById('totalCostDisplay');
             const profitEl = document.getElementById('pureProfitDisplay');
+            const salePriceSumEl = document.getElementById('totalSalePriceSumDisplay');
 
             if (revEl) revEl.textContent = Math.round(Number(data.revenue || 0)).toLocaleString();
             if (costEl) costEl.textContent = Math.round(Number(data.cost || 0)).toLocaleString();
             if (profitEl) profitEl.textContent = Math.round(Number(data.pure_profit || 0)).toLocaleString();
+            if (salePriceSumEl) salePriceSumEl.textContent = Math.round(Number(data.total_sale_price_sum || 0)).toLocaleString();
         } catch (err) {
             console.error(err);
         }

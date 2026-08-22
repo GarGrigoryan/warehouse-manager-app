@@ -238,17 +238,17 @@ app.get('/api/sales/daily-total', async (req, res) => {
             WHERE movement_type = 'OUT' AND log_date >= CURRENT_DATE
         `);
 
-        // Query the sum of current sale_price of all items
+        // Calculate sum of sale_price across all items in warehouse
         const itemsResult = await pool.query(`
             SELECT SUM(sale_price) as total_items_sale_price FROM items
         `);
 
         const revenue = parseFloat(salesResult.rows[0].total_revenue || 0);
         const cost = parseFloat(salesResult.rows[0].total_cost || 0);
-        // Replace pure_profit calculation with total sum of all items' sale_price
-        const pure_profit = parseFloat(itemsResult.rows[0].total_items_sale_price || 0);
+        const pure_profit = revenue - cost;
+        const total_sale_price_sum = parseFloat(itemsResult.rows[0].total_items_sale_price || 0);
 
-        res.json({ revenue, cost, pure_profit });
+        res.json({ revenue, cost, pure_profit, total_sale_price_sum });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
